@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <locale.h>
+#include <time.h>
 
+//struct para definir o produto 
 typedef struct {
     char nome[30];
     char tipo[20];
@@ -13,6 +15,23 @@ typedef struct {
 	float quant; 
 	
 } Merc;
+
+//struct para armazenar os dados da transação
+typedef struct {
+    char item[30];
+    int quantidade;
+    float valor_unitario;
+    float valor_total;
+    char data[20];  // Ex: "27/11/2024 14:35"
+} Transacao;
+
+//função para pegar data e hora 
+void DataHora(char *buffer) {
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+    sprintf(buffer, "%02d/%02d/%04d %02d:%02d",
+            tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_min);
+}
 
 // Função para mostrar produtos
 int mostrarprod() {
@@ -165,7 +184,7 @@ void editprod() {
 
                 // Editar tipo de venda
                 printf("Selecione o novo tipo de venda (ou 0 para manter):\n");
-                printf(" [1] - UN\n [2] - KG\n");
+                printf("[1] - UN\n[2] - KG\n");
                 int novo_tipovend;
                 
                 do{
@@ -193,12 +212,15 @@ void editprod() {
                 printf("[0] - Manter Quantiade \n[1] - Alterar Quantidade \n");
                 int decisao; // para mudar ou não a quantidade
                 float nova_quant;
+                int result;
+                 result = strcmp(produtos[i].tipovend, "UN");
+                setbuf(stdin, NULL);
                 scanf("%d", &decisao);
                 if (decisao == 0) {
                     produtos[i].quant = produtos[i].quant;
                 }
                 
-                else if(novo_tipovend == 1 && decisao != 0){
+                else if((novo_tipovend == 1 || result == 0) && decisao == 1){
                     
                     printf(" Quantiadade (não atribua números com casas decimais!!!): ");
                     do{   
@@ -213,7 +235,7 @@ void editprod() {
                     }while(produtos[i].quant <= 0);
                 }
 
-                else if(novo_tipovend == 2 && decisao != 0){
+                else if((novo_tipovend == 2 || result != 0) && decisao == 1){
                     
                     printf(" Quantidade em KG ");
                     do{   
@@ -644,17 +666,17 @@ int Cadprod() {
         
         printf("Deseja finalizar ou continuar?\n");
         do{
-        printf("0 - Sair\n");
-        printf("1 - Continuar\n");
-	    scanf("%d", &opcad); 
-        setbuf(stdin, NULL);
-        system("cls");
-        if(opcad != 0 && opcad != 1)
-		printf("Digite uma opção válida\n");
+            printf("0 - Sair\n");
+            printf("1 - Continuar\n");
+            scanf("%d", &opcad); 
+            setbuf(stdin, NULL);
+            system("cls");
+            if(opcad != 0 && opcad != 1)
+            printf("Digite uma opção válida\n");
 		
 		}while(opcad != 0 && opcad != 1);
 		
-		 fclose(arq);
+		fclose(arq);
 	
         i++;
     } while(opcad != 0);
@@ -689,17 +711,17 @@ void telacaixa(){
 
 //função para realizar venda
 void venda() {
-    FILE *arq;
+   FILE *arq, *fluxo;
     char Linha[200];
     Merc produtos[200]; // Array para armazenar produtos
-    int count = 0, encontrado = 0, codigo;
+    int count = 0, encontrado = 0, codigo, frete;
     float quantidade, total = 0.0;
 
     printf("\n==========================================\n");
-    printf("|                 CARRINHO               |\n");
+    printf("|                 CARRINHO                  |\n");
     printf("==========================================\n");
 
-    // Abrir o arquivo para leitura
+    // Abrir o arquivo de estoque para leitura
     arq = fopen("Estoque.csv", "r");
     if (arq == NULL) {
         printf("Erro ao abrir o arquivo de estoque!\n");
@@ -717,12 +739,26 @@ void venda() {
     }
     fclose(arq);
 
+    // Abrir o arquivo de fluxo diário para escrita (adicionando ao final)
+    fluxo = fopen("FluxoDiario.csv", "a");
+    if (fluxo == NULL) {
+        printf("Erro ao abrir o arquivo de fluxo diário!\n");
+        return;
+    }
+
+    // Obter a data e hora atual
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+    fprintf(fluxo, "Data: %02d/%02d/%04d Hora: %02d:%02d:%02d\n",
+            tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900,
+            tm.tm_hour, tm.tm_min, tm.tm_sec);
+
     while (1) {
         printf("\nProdutos disponíveis:\n");
         printf("Código\t\tNome\tUnidade\t\tQuantidade\tPreço\n");
         for (int i = 0; i < count; i++) {
             printf("%d\t\t%s\t  %s\t\t  %.2f\t\tR$ %.2f\n", 
-                   produtos[i].codigo, produtos[i].nome,produtos[i].tipovend,
+                   produtos[i].codigo, produtos[i].nome, produtos[i].tipovend,
                    produtos[i].quant, produtos[i].valor);
         }
 
@@ -732,7 +768,29 @@ void venda() {
 
         // Encerrar o caixa
         if (codigo == 0) {
+            printf("Opções de venda\n[1] - Presencial\n[2] - Online\n");
+            do{
+                scanf("%d", &frete);
+                if(frete == 1) {
+
+                    total = total;
+                
+                }
+
+                else if (frete == 2){
+
+                    total += 11.90;
+
+                }
+
+                else{
+
+                    printf("Opcão de venda inválida");
+                }
+            }while(frete != 1 && frete != 2);
+
             printf("\nVenda finalizada. Total da compra: R$ %.2f\n", total);
+            fprintf(fluxo, "Total da compra: R$ %.2f\n\n", total);
             break;
         }
 
@@ -745,10 +803,10 @@ void venda() {
                 // Exibir informações do produto
                 printf("Produto selecionado: %s\n", produtos[i].nome);
 
-                int result; //para ver se o produto é vendido por kg ou unidade
-                result = strcmp(produtos[i].tipovend, "UN");
+                // Verificar se é vendido por unidade ou peso
+                int result = strcmp(produtos[i].tipovend, "UN");
 
-                if((result = 0)){
+                 if((result = 0)){
                     printf("Quantidade disponível: %.2f\n", produtos[i].quant);
                 }
 
@@ -756,17 +814,8 @@ void venda() {
                     printf("Quantidade disponível em KG: %.2f\n", produtos[i].quant);
                 }
 
-                // Solicitar a quantidade a ser vendida
-                if ((result = 0)){ 
-                    printf("Digite a quantidade que deseja vender: ");
-                    scanf("%f", &quantidade);
-                }
-
-                else if(!result){
-                    printf("Quantos KG(s) deseja vender: ");
-                    scanf("%f", &quantidade);
-                }
-
+                printf("Digite a quantidade que deseja vender: ");
+                scanf("%f", &quantidade);
 
                 // Verificar se há estoque suficiente
                 if (quantidade > 0 && quantidade <= produtos[i].quant) {
@@ -774,6 +823,10 @@ void venda() {
                     float subtotal = quantidade * produtos[i].valor;
                     total += subtotal; // Atualizar o total da venda
                     printf("Venda realizada! Subtotal: R$ %.2f\n", subtotal);
+
+                    // Registrar a venda no arquivo de fluxo diário
+                    fprintf(fluxo, "Produto: %s, Quantidade: %.2f, Subtotal: R$ %.2f\n",
+                            produtos[i].nome, quantidade, subtotal);
                 } else {
                     printf("Quantidade inválida ou insuficiente em estoque.\n");
                 }
@@ -786,10 +839,12 @@ void venda() {
         }
     }
 
+    fclose(fluxo);
+
     // Abrir o arquivo para reescrita e salvar os produtos atualizados
     arq = fopen("Estoque.csv", "w");
     if (arq == NULL) {
-        printf("Erro ao abrir o arquivo para salvar!\n");
+        printf("Erro ao abrir o arquivo de estoque para salvar!\n");
         return;
     }
 
@@ -802,6 +857,50 @@ void venda() {
     fclose(arq);
 
     printf("\nEstoque atualizado com sucesso!\n");
+}
+
+void fluxocaixa(Transacao *transacao){
+
+        FILE *arq = fopen("FluxoCaixa.csv", "a");
+    if (arq == NULL) {
+        printf("Erro ao abrir o arquivo de fluxo de caixa!\n");
+        return;
+    }
+
+    fprintf(arq, "%s,%d,%.2f,%.2f,%s\n",
+            transacao->item, transacao->quantidade,
+            transacao->valor_unitario, transacao->valor_total,
+            transacao->data);
+
+    fclose(arq);
+
+}
+
+void lerfluxo(){
+
+FILE *fluxo;
+    char linha[200];
+
+    printf("\n==========================================\n");
+    printf("|\t     FLUXO DE VENDAS\t\t |\n");
+    printf("==========================================\n");
+
+    // Abrir o arquivo de fluxo diário
+    fluxo = fopen("FluxoDiario.csv", "r");
+    if (fluxo == NULL) {
+        printf("Erro ao abrir o arquivo de fluxo diário!\n");
+        return;
+    }
+
+    // Ler e exibir cada linha do arquivo
+    while (fgets(linha, sizeof(linha), fluxo) != NULL) {
+        printf("%s", linha);
+    }
+
+    fclose(fluxo); // Fechar o arquivo após a leitura
+    printf("\n==========================================\n");
+    printf("\t  Fim do fluxo diário.\n");;
+
 }
 
 
@@ -880,6 +979,11 @@ int main() {
                     case 1:
                         venda();
                     break;
+
+                    case 2:
+                        lerfluxo();   
+                    break;
+
 
                     
 
